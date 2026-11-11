@@ -22,6 +22,13 @@ python -c "import torch; print(torch.cuda.is_available())"
 
 ## 运行流程
 
+### 数据集与获取方式
+
+数据集计划托管在 Hugging Face Datasets，仓库链接https://huggingface.co/LiangGroup/ECLGD_checkpoint_data/tree/main。
+数据集提供原始 `.npz` 分子动力学轨迹；下载并解压（如有压缩包）后，将 NPZ 文件放到 `DATA_ROOT` 指向的目录，再按下面的步骤构建本地 `graph_cache/`。
+
+### 本地运行
+
 **1. 准备数据。** 将轨迹 NPZ 放入默认目录 `npz dataset/`。输入需要 `coords`（形状 `[帧数, 原子数, 3]`，单位 Å）、`atom_names`、`resnames`、`resids`、`segids` 和 `ligand_resnames`。可选字段包括 `times`、`box`、`bonds` 和 `charges`。缺少 `times` 时使用帧编号。
 
 **2. 构建并检查缓存。**
