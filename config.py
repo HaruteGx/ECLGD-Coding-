@@ -1,0 +1,307 @@
+import os
+from pathlib import Path
+
+
+def _env_int(name, default):
+    value = os.environ.get(name)
+    return int(value) if value not in (None, "") else default
+
+
+def _env_float(name, default):
+    value = os.environ.get(name)
+    return float(value) if value not in (None, "") else default
+
+
+def _env_bool(name, default):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return bool(default)
+    return str(value).strip().lower() not in ("0", "false", "no", "off")
+
+
+def _env_optional_int(name, default=None):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return default
+    return int(value)
+
+
+def _env_int_list(name, default=()):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return tuple(default)
+    parts = str(value).replace(";", ",").split(",")
+    return tuple(int(part.strip()) for part in parts if part.strip())
+
+
+# Paths
+DATA_ROOT = Path(os.environ.get("DATA_ROOT", "npz dataset"))
+GRAPH_ROOT = Path(os.environ.get("GRAPH_ROOT", "graph_cache"))
+OUT_ROOT = Path(os.environ.get("OUT_ROOT", "outputs"))
+CKPT_ROOT = Path(os.environ.get("CKPT_ROOT", str(OUT_ROOT / "checkpoints")))
+DDP_RANK_LOG_DIR = Path(os.environ.get("DDP_RANK_LOG_DIR", str(OUT_ROOT / "ddp_rank_logs")))
+
+# Cached graph geometry
+LIGAND_NEAR_RES_CUTOFF = 10.0
+COORD_SCALE = 10.0
+EDGE_RADIUS_A = 4.5
+CACHED_FRAME_START = 0
+CACHED_FRAME_COUNT = _env_int("CACHED_FRAME_COUNT", 100)
+PACKED_FRAMES_NAME = "frames.pt"
+GRAPH_CACHE_SCHEMA_VERSION = 4
+
+# Electronic cloud
+# The cloud covers the complete residues selected by the ligand-near cutoff.
+# Grid size is fixed for batching; voxel size is computed per frame from the
+# selected residue/ligand bounding box plus padding.
+CLOUD_GRID_SIZE = _env_int("CLOUD_GRID_SIZE", 40)
+CLOUD_BOX_PADDING_A = _env_float("CLOUD_BOX_PADDING_A", 2.0)
+CLOUD_MIN_VOXEL_A = _env_float("CLOUD_MIN_VOXEL_A", 0.25)
+CLOUD_MAX_VOXEL_A = _env_float("CLOUD_MAX_VOXEL_A", 1.0)
+CLOUD_GAUSS_SIGMA_A = _env_float("CLOUD_GAUSS_SIGMA_A", 1.0)
+CLOUD_CHANNELS = 2
+CLOUD_CHANNEL_NAMES = ("protein", "ligand")
+GRAPH_CACHE_CLOUD_DEVICE = os.environ.get("GRAPH_CACHE_CLOUD_DEVICE", "cuda").strip().lower()
+GRAPH_CACHE_SHARD_INDEX = _env_int("GRAPH_CACHE_SHARD_INDEX", 0)
+GRAPH_CACHE_SHARD_COUNT = _env_int("GRAPH_CACHE_SHARD_COUNT", 1)
+GRAPH_CACHE_VOXEL_CHUNK = _env_int("GRAPH_CACHE_VOXEL_CHUNK", 65536)
+GRAPH_CACHE_ATOM_CHUNK = _env_int("GRAPH_CACHE_ATOM_CHUNK", 128)
+GRAPH_CACHE_SAVE_FRAME_FILES = _env_bool("GRAPH_CACHE_SAVE_FRAME_FILES", False)
+GRAPH_CACHE_SKIP_EXISTING = _env_bool("GRAPH_CACHE_SKIP_EXISTING", True)
+GRAPH_CACHE_UNWRAP_PBC = _env_bool("GRAPH_CACHE_UNWRAP_PBC", True)
+CLOUD_EMB_DIM = _env_int("CLOUD_EMB_DIM", 192)
+CLOUD_ENCODER = "e3"
+CLOUD_POINT_TOPK = _env_int("CLOUD_POINT_TOPK", 256)
+CLOUD_KNN = _env_int("CLOUD_KNN", 32)
+CLOUD_EGNN_LAYERS = _env_int("CLOUD_EGNN_LAYERS", 3)
+CLOUD_LIGAND_DROPOUT = _env_float("CLOUD_LIGAND_DROPOUT", 0.35)
+CONDITION_PROTEIN_ONLY_CLOUD = _env_bool("CONDITION_PROTEIN_ONLY_CLOUD", False)
+ROLLOUT_FAST_PROTEIN_CLOUD = _env_bool("ROLLOUT_FAST_PROTEIN_CLOUD", False)
+USE_NPZ_CHARGES_IF_AVAILABLE = True
+
+# Training
+TRAIN_MODE = "temporal_cloud_diffusion"
+MODEL_ARCHITECTURE = "lstm_rollout_se3_hierarchical_increment_diffusion_v11"
+DEVICE = "cuda"
+SEED = 42
+BATCH_SIZE = _env_int("BATCH_SIZE", 24)
+GRAD_ACCUM_STEPS = _env_int("GRAD_ACCUM_STEPS", 1)
+ALLOW_BATCH_SIZE_ROUND_UP = _env_bool("ALLOW_BATCH_SIZE_ROUND_UP", False)
+NUM_EPOCHS = _env_int("NUM_EPOCHS", 50)
+NUM_WORKERS = _env_int("NUM_WORKERS", 16)
+MAX_NUM_WORKERS = _env_int("MAX_NUM_WORKERS", 32)
+DATALOADER_TIMEOUT_SECONDS = _env_int("DATALOADER_TIMEOUT_SECONDS", 300)
+DATALOADER_PREFETCH_FACTOR = _env_int("DATALOADER_PREFETCH_FACTOR", 2)
+DATALOADER_PIN_MEMORY = _env_bool("DATALOADER_PIN_MEMORY", True)
+DATALOADER_PERSISTENT_WORKERS = _env_bool("DATALOADER_PERSISTENT_WORKERS", True)
+DATASET_DEBUG_LOADS = _env_bool("DATASET_DEBUG_LOADS", False)
+SKIP_BAD_GRAPH_CACHE = _env_bool("SKIP_BAD_GRAPH_CACHE", True)
+DATASET_SAMPLE_TIMEOUT_SECONDS = _env_int("DATASET_SAMPLE_TIMEOUT_SECONDS", 120)
+BAD_GRAPH_LOG = Path(os.environ.get("BAD_GRAPH_LOG", str(OUT_ROOT / "bad_graph_cache.txt")))
+DATASET_VALIDATE_GRAPH = _env_bool("DATASET_VALIDATE_GRAPH", False)
+MAX_GRAPH_NODES = _env_int("MAX_GRAPH_NODES", 4096)
+MAX_PROTEIN_RESIDUES = _env_int("MAX_PROTEIN_RESIDUES", 2048)
+MAX_GRAPH_EDGES = _env_int("MAX_GRAPH_EDGES", 250000)
+TRAIN_STEP_DEBUG = _env_bool("TRAIN_STEP_DEBUG", False)
+TEMPORAL_INTERNAL_DEBUG = _env_bool("TEMPORAL_INTERNAL_DEBUG", False)
+TEMPORAL_DEBUG_EVERY_FRAMES = _env_int("TEMPORAL_DEBUG_EVERY_FRAMES", 10)
+TEMPORAL_DEBUG_ALL_RANKS = _env_bool("TEMPORAL_DEBUG_ALL_RANKS", False)
+LR = _env_float("LR", 5e-5)
+LR_SCHEDULER = os.environ.get("LR_SCHEDULER", "anchored_exp").strip().lower()
+MIN_LR = _env_float("MIN_LR", 5e-7)
+LR_ANCHOR_EPOCH = _env_int("LR_ANCHOR_EPOCH", 35)
+LR_ANCHOR_VALUE = _env_float("LR_ANCHOR_VALUE", 2e-5)
+LR_FINAL_EPOCH = _env_int("LR_FINAL_EPOCH", 50)
+LR_FINAL_VALUE = _env_float("LR_FINAL_VALUE", 1e-5)
+LR_PLATEAU_FACTOR = _env_float("LR_PLATEAU_FACTOR", 0.5)
+LR_PLATEAU_PATIENCE = _env_int("LR_PLATEAU_PATIENCE", 3)
+LR_PLATEAU_THRESHOLD = _env_float("LR_PLATEAU_THRESHOLD", 0.005)
+LR_PLATEAU_COOLDOWN = _env_int("LR_PLATEAU_COOLDOWN", 1)
+TEST_SPLIT_FRAC = _env_float("TEST_SPLIT_FRAC", 0.03)
+VAL_SPLIT_FRAC = _env_float("VAL_SPLIT_FRAC", 0.03)
+TRAIN_LOG_EVERY_STEPS = _env_int("TRAIN_LOG_EVERY_STEPS", 50)
+SMOKE_TEST_GRAPHS = _env_int("SMOKE_TEST_GRAPHS", 0)
+DATASET_META_CACHE = _env_bool("DATASET_META_CACHE", False)
+
+# DDP / AMP
+DDP_TIMEOUT_MINUTES = _env_float("DDP_TIMEOUT_MINUTES", 15)
+DDP_FIND_UNUSED_PARAMETERS = _env_bool("DDP_FIND_UNUSED_PARAMETERS", False)
+DDP_RANK_LOG_EVERY_STEPS = _env_int("DDP_RANK_LOG_EVERY_STEPS", 1)
+AMP_ENABLED = _env_bool("AMP_ENABLED", True)
+AMP_DTYPE = os.environ.get("AMP_DTYPE", "bf16").strip().lower()
+
+# Temporal task: initial complex structure condition, full-trajectory generation.
+TRAJ_LEVEL = os.environ.get("TRAJ_LEVEL", "integrated").strip().lower()
+OBSERVED_FRAMES = _env_int("OBSERVED_FRAMES", 4)
+FUTURE_FRAMES = _env_int("FUTURE_FRAMES", 1)
+LSTM_KEYFRAME_COUNT = _env_int("LSTM_KEYFRAME_COUNT", 10)
+OBSERVED_GRAD_FRAMES = _env_int("OBSERVED_GRAD_FRAMES", 1)
+TRAJ_SOURCE_FRAME = _env_optional_int("TRAJ_SOURCE_FRAME", None)
+TRAJ_TARGET_START_FRAME = _env_optional_int("TRAJ_TARGET_START_FRAME", None)
+TRAJ_TARGET_FRAME_STRIDE = _env_int("TRAJ_TARGET_FRAME_STRIDE", 1)
+TRAJ_OBSERVED_FRAME_STRIDE = _env_int("TRAJ_OBSERVED_FRAME_STRIDE", 1)
+TRAJ_RANDOM_WINDOW = _env_bool("TRAJ_RANDOM_WINDOW", False)
+TRAJ_RANDOM_STRIDE = _env_bool("TRAJ_RANDOM_STRIDE", False)
+TRAJ_MIN_FRAME_STRIDE = _env_int("TRAJ_MIN_FRAME_STRIDE", 1)
+TRAJ_MAX_FRAME_STRIDE = _env_int("TRAJ_MAX_FRAME_STRIDE", TRAJ_TARGET_FRAME_STRIDE)
+TRAJ_RANDOM_WINDOWS_PER_TRAJ = _env_int("TRAJ_RANDOM_WINDOWS_PER_TRAJ", 1)
+TRAJ_STATIC_CONTEXT_PROB = _env_float("TRAJ_STATIC_CONTEXT_PROB", 0.0)
+STRICT_TRAJECTORY_ALIGNMENT = _env_bool("STRICT_TRAJECTORY_ALIGNMENT", True)
+TRAJ_FORCE_FINAL_FRAME = _env_bool("TRAJ_FORCE_FINAL_FRAME", False)
+TRAJ_WINDOW_STRIDE = _env_int("TRAJ_WINDOW_STRIDE", 0)
+TRAJ_EVAL_EVERY_EPOCHS = _env_int("TRAJ_EVAL_EVERY_EPOCHS", 5)
+TRAJ_EVAL_MAX_SAMPLES = _env_int("TRAJ_EVAL_MAX_SAMPLES", 120)
+TRAJ_EVAL_LOG_EVERY_SAMPLES = _env_int("TRAJ_EVAL_LOG_EVERY_SAMPLES", 5)
+TRAJ_EVAL_SAMPLE_STEPS = _env_int("TRAJ_EVAL_SAMPLE_STEPS", 50)
+TRAJ_EVAL_TEACHER_FORCED = _env_bool("TRAJ_EVAL_TEACHER_FORCED", False)
+TRAJ_EVAL_SEED = _env_int("TRAJ_EVAL_SEED", SEED)
+TRAJ_EVAL_POSTPROCESS_PDB = _env_bool("TRAJ_EVAL_POSTPROCESS_PDB", False)
+TRAJ_EVAL_MATCH_TRAIN_WINDOWS = _env_bool("TRAJ_EVAL_MATCH_TRAIN_WINDOWS", True)
+TRAJ_EVAL_STRIDE_SWEEP = _env_int_list("TRAJ_EVAL_STRIDE_SWEEP", ())
+EARLY_STOPPING_ENABLED = _env_bool("EARLY_STOPPING_ENABLED", False)
+EARLY_STOPPING_PATIENCE = _env_int("EARLY_STOPPING_PATIENCE", 3)
+EARLY_STOPPING_MIN_DELTA = _env_float("EARLY_STOPPING_MIN_DELTA", 0.0)
+EARLY_STOPPING_METRIC = os.environ.get("EARLY_STOPPING_METRIC", "pocket_traj_rmse_A").strip()
+TRAIN_SAVE_FINAL_SAMPLE = _env_bool("TRAIN_SAVE_FINAL_SAMPLE", False)
+TRAIN_FINAL_SAMPLE_STEPS = _env_int("TRAIN_FINAL_SAMPLE_STEPS", TRAJ_EVAL_SAMPLE_STEPS)
+
+# Model dimensions
+NODE_FEAT_DIM = 5
+MODEL_DIM = _env_int("MODEL_DIM", 192)
+PROTEIN_HEADS = _env_int("PROTEIN_HEADS", 6)
+PROTEIN_LAYERS = _env_int("PROTEIN_LAYERS", 3)
+PROTEIN_FF_DIM = _env_int("PROTEIN_FF_DIM", 768)
+PROTEIN_SE3_LAYERS = _env_int("PROTEIN_SE3_LAYERS", 3)
+PROTEIN_SE3_KNN = _env_int("PROTEIN_SE3_KNN", 16)
+PROTEIN_SE3_VECTOR_CHANNELS = _env_int("PROTEIN_SE3_VECTOR_CHANNELS", 16)
+PROTEIN_SE3_RBF_DIM = _env_int("PROTEIN_SE3_RBF_DIM", 16)
+PROTEIN_SE3_RADIUS_A = _env_float("PROTEIN_SE3_RADIUS_A", 20.0)
+GNN_LAYERS = _env_int("GNN_LAYERS", 4)
+DROPOUT = _env_float("DROPOUT", 0.1)
+
+# Joint coarse-trajectory increment-residual diffusion.  The latent variable is
+# a time-normalized correction to adjacent-frame increments in the preceding
+# coarse backbone frame; absolute coordinates are obtained only by cumulative
+# integration from the last observed frame.
+DIFFUSION_STEPS = _env_int("DIFFUSION_STEPS", 100)
+SAMPLE_DIFFUSION_STEPS = _env_int("SAMPLE_DIFFUSION_STEPS", DIFFUSION_STEPS)
+DIFFUSION_TIME_DIM = _env_int("DIFFUSION_TIME_DIM", 96)
+DIFFUSION_HIDDEN_DIM = _env_int("DIFFUSION_HIDDEN_DIM", 384)
+PROTEIN_OUTPUT_MODE = os.environ.get("PROTEIN_OUTPUT_MODE", "frame").strip().lower()
+LIGAND_RIGID_POSE = _env_bool("LIGAND_RIGID_POSE", True)
+
+# MD-aware temporal and graph conditioning.  Physical times remain in the
+# units stored in the NPZ; TIME_SCALE is inferred per sample from observed
+# positive frame intervals so neural inputs and integration steps are stable.
+DYNAMIC_GRAPH_ENABLED = _env_bool("DYNAMIC_GRAPH_ENABLED", True)
+DYNAMIC_GRAPH_RADIUS_A = _env_float("DYNAMIC_GRAPH_RADIUS_A", EDGE_RADIUS_A)
+DYNAMIC_GRAPH_MAX_NEIGHBORS = _env_int("DYNAMIC_GRAPH_MAX_NEIGHBORS", 32)
+DYNAMIC_GRAPH_CHUNK_SIZE = _env_int("DYNAMIC_GRAPH_CHUNK_SIZE", 256)
+MD_USE_PBC = _env_bool("MD_USE_PBC", True)
+MD_PHYSICAL_TIME_DIM = _env_int("MD_PHYSICAL_TIME_DIM", 32)
+MD_STORED_TIME_TO_PS = _env_float("MD_STORED_TIME_TO_PS", 1.0)
+MD_INTEGRATOR_ACCEL_SCALE = _env_float("MD_INTEGRATOR_ACCEL_SCALE", 0.1)
+MD_ELECTRON_SHELLS = _env_int("MD_ELECTRON_SHELLS", 16)
+# Shell centers span the same 10-A pocket range by default; this is a
+# descriptor radius, not the force-field switching onset or an energy cutoff.
+MD_ELECTRON_CUTOFF_A = _env_float("MD_ELECTRON_CUTOFF_A", LIGAND_NEAR_RES_CUTOFF)
+MD_ELECTRON_SIGMA_A = _env_float("MD_ELECTRON_SIGMA_A", CLOUD_GAUSS_SIGMA_A)
+# All atoms of active whole residues and all ligand queries participate.
+MD_ELECTRON_TIME_CHUNK = _env_int("MD_ELECTRON_TIME_CHUNK", 8)
+MD_HIERARCHY_CLOUD_LOSS_WEIGHT = _env_float("MD_HIERARCHY_CLOUD_LOSS_WEIGHT", 0.10)
+MD_HIERARCHY_RIGID_POCKET_WEIGHT = _env_float("MD_HIERARCHY_RIGID_POCKET_WEIGHT", 0.25)
+
+# Independent joint electron-number-density branch. Existing two-channel
+# Gaussian voxel inputs remain unchanged. QM labels are supervision ONLY.
+QM_DENSITY_LOSS_WEIGHT = _env_float("QM_DENSITY_LOSS_WEIGHT", 0.1)
+QM_DENSITY_REQUIRE_LABELS = _env_bool("QM_DENSITY_REQUIRE_LABELS", False)
+QM_DENSITY_SAMPLES = _env_int("QM_DENSITY_SAMPLES", 1024)
+QM_DENSITY_SIDECAR = "qm_density_samples.npz"
+
+# Conservative reduced force-field prior.  Energies are expressed in
+# kcal/mol, distances in Angstrom, masses in amu, and time in ps when NPZ
+# times use ps.  The conversion 1 (kcal/mol/A)/amu = 418.4 A/ps^2 is applied
+# before coordinates are divided by COORD_SCALE.
+MD_CONSERVATIVE_LOSS_WEIGHT = _env_float("MD_CONSERVATIVE_LOSS_WEIGHT", 0.05)
+# These terms regularize the final pocket--cloud--ligand coordinates; they do
+# not minimize each frame independently and do not replace trajectory labels.
+MD_FORCE_CONSISTENCY_LOSS_WEIGHT = _env_float("MD_FORCE_CONSISTENCY_LOSS_WEIGHT", 0.05)
+MD_ENERGY_CONSISTENCY_LOSS_WEIGHT = _env_float("MD_ENERGY_CONSISTENCY_LOSS_WEIGHT", 0.02)
+MD_INTERFACE_ENERGY_LOSS_WEIGHT = _env_float("MD_INTERFACE_ENERGY_LOSS_WEIGHT", 0.05)
+MD_FORCE_ACCEL_NORM_A_PS2 = _env_float("MD_FORCE_ACCEL_NORM_A_PS2", 1000.0)
+MD_ENERGY_NORM_KCAL_PER_MOL_ATOM = _env_float("MD_ENERGY_NORM_KCAL_PER_MOL_ATOM", 10.0)
+MD_INTERFACE_ENERGY_NORM_KCAL_PER_MOL_LIGAND_ATOM = _env_float(
+    "MD_INTERFACE_ENERGY_NORM_KCAL_PER_MOL_LIGAND_ATOM",
+    10.0,
+)
+MD_BOND_FORCE_CONSTANT = _env_float("MD_BOND_FORCE_CONSTANT", 300.0)
+MD_LJ_EPSILON_KCAL = _env_float("MD_LJ_EPSILON_KCAL", 0.10)
+MD_COULOMB_CONSTANT = _env_float("MD_COULOMB_CONSTANT", 332.06371)
+MD_DIELECTRIC = _env_float("MD_DIELECTRIC", 4.0)
+MD_FORCE_TO_ACCEL_A_PS2 = _env_float("MD_FORCE_TO_ACCEL_A_PS2", 418.4)
+MD_FORCE_CUTOFF_A = _env_float("MD_FORCE_CUTOFF_A", 10.0)
+# Energy neighbors are exhaustive inside the cutoff, not a top-k GNN graph.
+MD_FORCE_SWITCH_A = _env_float("MD_FORCE_SWITCH_A", 8.0)
+MD_NONBONDED_SOFTCORE_RATIO = _env_float("MD_NONBONDED_SOFTCORE_RATIO", 0.5)
+MD_FORCE_MAX_FRAMES = _env_int("MD_FORCE_MAX_FRAMES", 12)
+# No independent force/acceleration clipping: both derive from the same U.
+MD_VALIDATION_METRICS = _env_bool("MD_VALIDATION_METRICS", True)
+MD_RDF_BINS = _env_int("MD_RDF_BINS", 32)
+MD_RDF_MAX_A = _env_float("MD_RDF_MAX_A", 10.0)
+
+# Training objective weights
+LATENT_LOSS_WEIGHT = _env_float("LATENT_LOSS_WEIGHT", 0.3)
+PHYSICS_LOSS_WEIGHT = _env_float("PHYSICS_LOSS_WEIGHT", 0.2)
+DISTOGRAM_LOSS_WEIGHT = _env_float("DISTOGRAM_LOSS_WEIGHT", 0.2)
+DISTOGRAM_MAX_TOKENS = _env_int("DISTOGRAM_MAX_TOKENS", 256)
+DIFFUSION_ABSOLUTE_ANCHOR_LOSS_WEIGHT = _env_float("DIFFUSION_ABSOLUTE_ANCHOR_LOSS_WEIGHT", 0.5)
+DIFFUSION_INCREMENT_X0_LOSS_WEIGHT = _env_float("DIFFUSION_INCREMENT_X0_LOSS_WEIGHT", 0.5)
+DIFFUSION_ABSOLUTE_ANCHOR_HORIZON_GAMMA = _env_float(
+    "DIFFUSION_ABSOLUTE_ANCHOR_HORIZON_GAMMA",
+    1.0,
+)
+DIFFUSION_INCREMENT_NOISE_LOSS_WEIGHT = _env_float("DIFFUSION_INCREMENT_NOISE_LOSS_WEIGHT", 0.5)
+CLASH_LOSS_WEIGHT = _env_float("CLASH_LOSS_WEIGHT", 0.02)
+ROLLOUT_LOSS_WEIGHT = _env_float("ROLLOUT_LOSS_WEIGHT", 0.35)
+ROLLOUT_FINAL_LOSS_WEIGHT = _env_float("ROLLOUT_FINAL_LOSS_WEIGHT", 1.0)
+ROLLOUT_VELOCITY_LOSS_WEIGHT = _env_float("ROLLOUT_VELOCITY_LOSS_WEIGHT", 0.25)
+ROLLOUT_CENTER_LOSS_WEIGHT = _env_float("ROLLOUT_CENTER_LOSS_WEIGHT", 0.2)
+LIGAND_RIGID_LOSS_WEIGHT = _env_float("LIGAND_RIGID_LOSS_WEIGHT", 0.05)
+PLANNER_DELTA_LOSS_WEIGHT = _env_float("PLANNER_DELTA_LOSS_WEIGHT", 0.0)
+PLANNER_KEY_DELTA_LOSS_WEIGHT = _env_float("PLANNER_KEY_DELTA_LOSS_WEIGHT", 0.0)
+PHYSICS_VELOCITY_WEIGHT = _env_float("PHYSICS_VELOCITY_WEIGHT", 0.3)
+PHYSICS_MOLD_WEIGHT = _env_float("PHYSICS_MOLD_WEIGHT", 0.55)
+PHYSICS_GEOMETRY_WEIGHT = _env_float("PHYSICS_GEOMETRY_WEIGHT", 0.15)
+TRAJECTORY_BACKBONE_GEOMETRY_WEIGHT = _env_float("TRAJECTORY_BACKBONE_GEOMETRY_WEIGHT", 0.35)
+TRAJECTORY_BACKBONE_SMOOTH_WEIGHT = _env_float("TRAJECTORY_BACKBONE_SMOOTH_WEIGHT", 0.25)
+TRAJECTORY_PEPTIDE_BOND_WEIGHT = _env_float("TRAJECTORY_PEPTIDE_BOND_WEIGHT", 0.35)
+TRAJECTORY_CA_CONTINUITY_WEIGHT = _env_float("TRAJECTORY_CA_CONTINUITY_WEIGHT", 0.25)
+TRAJECTORY_BACKBONE_DIRECTION_WEIGHT = _env_float("TRAJECTORY_BACKBONE_DIRECTION_WEIGHT", 0.20)
+TRAJECTORY_CLASH_WEIGHT = _env_float("TRAJECTORY_CLASH_WEIGHT", 0.05)
+TRAJECTORY_VELOCITY_WEIGHT = _env_float("TRAJECTORY_VELOCITY_WEIGHT", 0.15)
+TRAJECTORY_ACCELERATION_WEIGHT = _env_float("TRAJECTORY_ACCELERATION_WEIGHT", 0.05)
+TRAJECTORY_BOND_LENGTH_WEIGHT = _env_float("TRAJECTORY_BOND_LENGTH_WEIGHT", 0.20)
+TRAJECTORY_VDW_REPULSION_WEIGHT = _env_float("TRAJECTORY_VDW_REPULSION_WEIGHT", 0.03)
+TRAJECTORY_HBOND_WEIGHT = _env_float("TRAJECTORY_HBOND_WEIGHT", 0.05)
+TRAJECTORY_HYDROPHOBIC_WEIGHT = _env_float("TRAJECTORY_HYDROPHOBIC_WEIGHT", 0.03)
+TRAJECTORY_CLASH_MAX_FRAMES = _env_int("TRAJECTORY_CLASH_MAX_FRAMES", 12)
+TRAJECTORY_CLASH_MAX_LIGAND = _env_int("TRAJECTORY_CLASH_MAX_LIGAND", 64)
+TRAJECTORY_CLASH_MAX_PROTEIN = _env_int("TRAJECTORY_CLASH_MAX_PROTEIN", 256)
+TRAJECTORY_CONTACT_MAX_PAIRS = _env_int("TRAJECTORY_CONTACT_MAX_PAIRS", 512)
+TRAJECTORY_VDW_SCALE = _env_float("TRAJECTORY_VDW_SCALE", 0.65)
+TRAJECTORY_HBOND_DISTANCE_A = _env_float("TRAJECTORY_HBOND_DISTANCE_A", 3.4)
+TRAJECTORY_HYDROPHOBIC_DISTANCE_A = _env_float("TRAJECTORY_HYDROPHOBIC_DISTANCE_A", 4.5)
+TRAJECTORY_FRAME_ROT_SCALE_RAD = _env_float("TRAJECTORY_FRAME_ROT_SCALE_RAD", 3.141592653589793)
+PROTEIN_BACKBONE_PROJECT = _env_bool("PROTEIN_BACKBONE_PROJECT", True)
+PROTEIN_BACKBONE_PROJECT_MODE = os.environ.get("PROTEIN_BACKBONE_PROJECT_MODE", "bond_constraints").strip().lower()
+PROTEIN_BACKBONE_PROJECT_ITERS = _env_int("PROTEIN_BACKBONE_PROJECT_ITERS", 4)
+PROTEIN_BACKBONE_PROJECT_STRENGTH = _env_float("PROTEIN_BACKBONE_PROJECT_STRENGTH", 0.5)
+PROTEIN_BACKBONE_FORCE_SEQUENTIAL_CHAIN = _env_bool("PROTEIN_BACKBONE_FORCE_SEQUENTIAL_CHAIN", False)
+PROTEIN_BACKBONE_PROJECT_EACH_DIFFUSION_STEP = _env_bool("PROTEIN_BACKBONE_PROJECT_EACH_DIFFUSION_STEP", True)
+LSTM_PROTEIN_CONTEXT_WEIGHT = _env_float("LSTM_PROTEIN_CONTEXT_WEIGHT", 0.35)
+CLOUD_MOLD_PROTEIN_WEIGHT = _env_float("CLOUD_MOLD_PROTEIN_WEIGHT", 0.85)
+CLOUD_MOLD_LIGAND_WEIGHT = _env_float("CLOUD_MOLD_LIGAND_WEIGHT", 1.0)
+CLOUD_MOLD_CENTER_WEIGHT = _env_float("CLOUD_MOLD_CENTER_WEIGHT", 0.8)
+
+# Geometry restraints
+CLASH_DISTANCE_A = 1.6
